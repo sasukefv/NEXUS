@@ -1,7 +1,8 @@
 import {
   makeWASocket,
   DisconnectReason,
-  useMultiFileAuthState
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion
 } from '@whiskeysockets/baileys'
 
 import { Boom } from '@hapi/boom'
@@ -11,8 +12,12 @@ async function startBot() {
   const { state, saveCreds } =
     await useMultiFileAuthState('./auth_info_baileys')
 
+  const { version } = await fetchLatestBaileysVersion()
+
   const sock = makeWASocket({
     auth: state,
+    version,
+    browser: ['MeinBot', 'Chrome', '110.0.0'],
     markOnlineOnConnect: false
   })
 
@@ -31,21 +36,24 @@ async function startBot() {
     }
 
     if (connection === 'close') {
+      console.log('❌ Verbindung geschlossen. Vollständiger Fehler:')
+      console.log(JSON.stringify(lastDisconnect?.error, null, 2))
+
       const statusCode =
         lastDisconnect?.error instanceof Boom
           ? lastDisconnect.error.output.statusCode
           : 0
 
+      console.log('StatusCode:', statusCode)
+
       const reconnect =
         statusCode !== DisconnectReason.loggedOut
 
-      console.log('❌ Verbindung geschlossen.')
-
       if (reconnect) {
-        console.log('🔄 Verbinde erneut...')
-        startBot()
+        console.log('🔄 Verbinde in 5 Sekunden erneut...')
+        setTimeout(startBot, 5000)
       } else {
-        console.log('⚠️ Du wurdest ausgeloggt.')
+        console.log('⚠️ Du wurdest ausgeloggt. Bitte auth_info_baileys löschen und neu starten.')
       }
     }
   })
