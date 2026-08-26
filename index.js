@@ -62,61 +62,67 @@ async function startBot() {
 
       console.log('📩 Nachricht:', text)
 
+      const remoteJid = message.key.remoteJid
+
+      const send = (msgText) =>
+        sock.sendMessage(remoteJid, { text: msgText })
+
       if (text.trim().toLowerCase() === '?ping') {
-        await sock.sendMessage(message.key.remoteJid, {
-          text: '🏓 Pong!'
-        })
+        await send('🏓 Pong!')
+        continue
+      }
+
+      if (text.startsWith('?join ')) {
+        const link = text.slice(6).trim()
+
+        if (!link.includes('chat.whatsapp.com/')) {
+          await send(
+            '❌ Bitte gib einen gültigen WhatsApp-Gruppenlink ein.\n\nBeispiel:\n?join https://chat.whatsapp.com/XXXXXXXX'
+          )
+          continue
+        }
+
+        try {
+          const inviteCode = link.split('chat.whatsapp.com/')[1].split('?')[0]
+          const groupInfo = await sock.groupGetInviteInfo(inviteCode)
+
+          if (!groupInfo) {
+            await send('❌ Die Gruppe konnte nicht gefunden werden.')
+            continue
+          }
+
+          const groupJid = groupInfo.id
+          const metadata = await sock.groupMetadata(groupJid)
+          const memberCount = metadata.participants.length
+
+          if (memberCount < 10) {
+            await send(
+              `❌ Der Bot kann dieser Gruppe noch nicht beitreten.\n\n` +
+              `👥 Mitglieder: ${memberCount}/10\n` +
+              `🔒 Mindestens 10 Mitglieder erforderlich.`
+            )
+            continue
+          }
+
+          await sock.groupAcceptInvite(inviteCode)
+
+          await send(
+            `✅ Der Bot ist der Gruppe erfolgreich beigetreten!\n\n` +
+            `👥 Mitglieder: ${memberCount}`
+          )
+        } catch (error) {
+          console.log('Join-Fehler:', error)
+
+          await send(
+            '❌ Der Bot konnte der Gruppe nicht beitreten.\n' +
+            'Möglicherweise ist der Link ungültig oder abgelaufen.'
+          )
+        }
+
+        continue
       }
     }
   })
 }
 
 startBot()
-if (text.startsWith("?join ")) {
-    const link = text.slice(6).trim();
-
-    if (!link.includes("chat.whatsapp.com/")) {
-        return send("❌ Bitte gib einen gültigen WhatsApp-Gruppenlink ein.\n\nBeispiel:\n?join https://chat.whatsapp.com/XXXXXXXX");
-    }
-
-    try {
-        const inviteCode = link.split("chat.whatsapp.com/")[1].split("?")[0];
-
-        // Gruppeninformationen abrufen
-        const groupInfo = await sock.groupGetInviteInfo(inviteCode);
-
-        if (!groupInfo) {
-            return send("❌ Die Gruppe konnte nicht gefunden werden.");
-        }
-
-        const groupJid = groupInfo.id;
-
-        // Mitglieder der Gruppe abrufen
-        const metadata = await sock.groupMetadata(groupJid);
-        const memberCount = metadata.participants.length;
-
-        if (memberCount < 10) {
-            return send(
-                `❌ Der Bot kann dieser Gruppe noch nicht beitreten.\n\n` +
-                `👥 Mitglieder: ${memberCount}/10\n` +
-                `🔒 Mindestens 10 Mitglieder erforderlich.`
-            );
-        }
-
-        // Gruppe beitreten
-        await sock.groupAcceptInvite(inviteCode);
-
-        return send(
-            `✅ Der Bot ist der Gruppe erfolgreich beigetreten!\n\n` +
-            `👥 Mitglieder: ${memberCount}`
-        );
-
-    } catch (error) {
-        console.log("Join-Fehler:", error);
-
-        return send(
-            "❌ Der Bot konnte der Gruppe nicht beitreten.\n" +
-            "Möglicherweise ist der Link ungültig oder abgelaufen."
-        );
-    }
-}
