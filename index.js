@@ -74,7 +74,6 @@ if (command !== "/reg" && !registeredUsers.has(sender)) {
 if (command === "/me") {
     const user = registeredUsers.get(sender);
 
-    return sock.sendMessage(from, {
         text:
 `╭━━━〔 👤 DEIN PROFIL 〕━━━╮
 ┃
