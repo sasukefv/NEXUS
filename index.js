@@ -25,7 +25,6 @@ if (command === "/reg") {
     // Bereits registriert?
     if (registeredUsers.has(sender)) {
             text: "⚠️ Du bist bereits registriert!"
-        });
     }
 
     // Nutzer speichern
