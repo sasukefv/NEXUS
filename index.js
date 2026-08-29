@@ -20,7 +20,6 @@ if (command === "/reg") {
     // Prüft auf gültige Zahl und logisches Alter
     if (isNaN(alter) || Number(alter) <= 0 || Number(alter) > 120) {
             text: "❌ Bitte gib ein gültiges Alter an."
-        });
     }
 
     // Bereits registriert?
