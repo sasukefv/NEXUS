@@ -14,7 +14,6 @@ if (command === "/reg") {
     const alter = parts[1]?.trim();
 
     if (!name || !alter) {
-        return sock.sendMessage(from, {
             text: "❌ Bitte gib deinen Namen und dein Alter an.\n\nBeispiel: `/reg Sasuke/16`"
         });
     }
