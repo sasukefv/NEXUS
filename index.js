@@ -1,5 +1,3 @@
-const registeredUsers = new Map();
-
 // ===============================
 // REGISTRIERUNG
 // ===============================
