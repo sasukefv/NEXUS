@@ -15,7 +15,6 @@ if (command === "/reg") {
 
     if (!name || !alter) {
             text: "❌ Bitte gib deinen Namen und dein Alter an.\n\nBeispiel: `/reg Sasuke/16`"
-        });
     }
 
     // Prüft auf gültige Zahl und logisches Alter
