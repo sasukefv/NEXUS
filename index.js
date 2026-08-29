@@ -33,7 +33,6 @@ if (command === "/reg") {
         alter: Number(alter)
     });
 
-    return sock.sendMessage(from, {
         text:
 `╭━━━〔 ✅ REGISTRIERUNG 〕━━━╮
 ┃
