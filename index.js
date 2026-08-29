@@ -1,139 +1,3 @@
-import {
-  makeWASocket,
-  DisconnectReason,
-  useMultiFileAuthState,
-  fetchLatestBaileysVersion
-} from '@whiskeysockets/baileys'
-
-import { Boom } from '@hapi/boom'
-import qrcode from 'qrcode-terminal'
-
-async function startBot() {
-  const { state, saveCreds } =
-    await useMultiFileAuthState('./auth_info_baileys')
-
-  const { version } = await fetchLatestBaileysVersion()
-
-  const sock = makeWASocket({
-    auth: state,
-    version,
-    browser: ['MeinBot', 'Chrome', '110.0.0'],
-    markOnlineOnConnect: false
-  })
-
-  sock.ev.on('creds.update', saveCreds)
-
-  sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect, qr } = update
-
-    if (qr) {
-      console.log('Scanne diesen QR-Code mit WhatsApp:')
-      qrcode.generate(qr, { small: true })
-    }
-
-    if (connection === 'open') {
-      console.log('✅ WhatsApp Bot erfolgreich verbunden!')
-    }
-
-    if (connection === 'close') {
-      console.log('❌ Verbindung geschlossen. Vollständiger Fehler:')
-      console.log(JSON.stringify(lastDisconnect?.error, null, 2))
-
-      const statusCode =
-        lastDisconnect?.error instanceof Boom
-          ? lastDisconnect.error.output.statusCode
-          : 0
-
-      console.log('StatusCode:', statusCode)
-
-      const reconnect =
-        statusCode !== DisconnectReason.loggedOut
-
-      if (reconnect) {
-        console.log('🔄 Verbinde in 5 Sekunden erneut...')
-        setTimeout(startBot, 5000)
-      } else {
-        console.log('⚠️ Du wurdest ausgeloggt. Bitte auth_info_baileys löschen und neu starten.')
-      }
-    }
-  })
-
-  sock.ev.on('messages.upsert', async ({ messages }) => {
-    for (const message of messages) {
-      if (!message.message) continue
-      if (message.key.fromMe) continue
-
-      const text =
-        message.message.conversation ||
-        message.message.extendedTextMessage?.text ||
-        ''
-
-      console.log('📩 Nachricht:', text)
-
-      const remoteJid = message.key.remoteJid
-
-      const send = (msgText) =>
-        sock.sendMessage(remoteJid, { text: msgText })
-
-      if (text.trim().toLowerCase() === '?ping') {
-        await send('🏓 Pong!')
-        continue
-      }
-
-      if (text.startsWith('?join ')) {
-        const link = text.slice(6).trim()
-
-        if (!link.includes('chat.whatsapp.com/')) {
-          await send(
-            '❌ Bitte gib einen gültigen WhatsApp-Gruppenlink ein.\n\nBeispiel:\n?join https://chat.whatsapp.com/XXXXXXXX'
-          )
-          continue
-        }
-
-        try {
-          const inviteCode = link.split('chat.whatsapp.com/')[1].split('?')[0]
-          const groupInfo = await sock.groupGetInviteInfo(inviteCode)
-
-          if (!groupInfo) {
-            await send('❌ Die Gruppe konnte nicht gefunden werden.')
-            continue
-          }
-
-          const groupJid = groupInfo.id
-          const metadata = await sock.groupMetadata(groupJid)
-          const memberCount = metadata.participants.length
-
-          if (memberCount < 10) {
-            await send(
-              `❌ Der Bot kann dieser Gruppe noch nicht beitreten.\n\n` +
-              `👥 Mitglieder: ${memberCount}/10\n` +
-              `🔒 Mindestens 10 Mitglieder erforderlich.`
-            )
-            continue
-          }
-
-          await sock.groupAcceptInvite(inviteCode)
-
-          await send(
-            `✅ Der Bot ist der Gruppe erfolgreich beigetreten!\n\n` +
-            `👥 Mitglieder: ${memberCount}`
-          )
-        } catch (error) {
-          console.log('Join-Fehler:', error)
-
-          await send(
-            '❌ Der Bot konnte der Gruppe nicht beitreten.\n' +
-            'Möglicherweise ist der Link ungültig oder abgelaufen.'
-          )
-        }
-
-        continue
-      }
-    }
-  })
-}
-
-startBot()
 if (cmd === 'marry') {
   const sub = (args[0] || '').toLowerCase();
 
@@ -232,4 +96,106 @@ if (cmd === 'divorce') {
   } catch (e) {}
 
   return send(`💔 Du hast dich von @${await displayNum(partnerJid)} scheiden lassen.`, { mentions: [partnerJid] });
+}
+// 1. "Const" muss kleingeschrieben werden: const
+const registeredUsers = new Map();
+
+// ===============================
+// REGISTRIERUNG
+// ===============================
+if (command === "/reg") {
+    const args = text.slice(4).trim();
+
+    if (!args.includes("/")) {
+        return sock.sendMessage(from, {
+            text: "❌ *Fehler!*\n\nNutze:\n`/reg Name/Alter`\n\nBeispiel:\n`/reg Sasuke/16`"
+        });
+    }
+
+    // Splittet beim ersten "/" und bereinigt direkte Leerzeichen
+    const parts = args.split("/");
+    const name = parts[0]?.trim();
+    const alter = parts[1]?.trim();
+
+    if (!name || !alter) {
+        return sock.sendMessage(from, {
+            text: "❌ Bitte gib deinen Namen und dein Alter an.\n\nBeispiel: `/reg Sasuke/16`"
+        });
+    }
+
+    // Prüft auf gültige Zahl und logisches Alter
+    if (isNaN(alter) || Number(alter) <= 0 || Number(alter) > 120) {
+        return sock.sendMessage(from, {
+            text: "❌ Bitte gib ein gültiges Alter an."
+        });
+    }
+
+    // Bereits registriert?
+    if (registeredUsers.has(sender)) {
+        return sock.sendMessage(from, {
+            text: "⚠️ Du bist bereits registriert!"
+        });
+    }
+
+    // Nutzer speichern
+    registeredUsers.set(sender, {
+        name: name,
+        alter: Number(alter)
+    });
+
+    return sock.sendMessage(from, {
+        text:
+`╭━━━〔 ✅ REGISTRIERUNG 〕━━━╮
+┃
+┃ 👤 Name: ${name}
+┃ 🎂 Alter: ${alter}
+┃
+┃ ✅ Erfolgreich registriert!
+┃
+┃ Du kannst nun die Commands
+┃ des NEXUS BOTs verwenden.
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━╯`
+    });
+}
+
+
+// ===============================
+// REGISTRIERUNG PRÜFEN
+// ===============================
+if (command !== "/reg" && !registeredUsers.has(sender)) {
+    return sock.sendMessage(from, {
+        text:
+`╭━━━〔 ⚠️ NICHT REGISTRIERT 〕━━━╮
+┃
+┃ ❌ Du bist noch nicht registriert.
+┃
+┃ Registriere dich zuerst mit:
+┃
+┃ /reg Name/Alter
+┃
+┃ Beispiel:
+┃ /reg Sasuke/16
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯`
+    });
+}
+
+
+// ===============================
+// /ME
+// ===============================
+if (command === "/me") {
+    const user = registeredUsers.get(sender);
+
+    return sock.sendMessage(from, {
+        text:
+`╭━━━〔 👤 DEIN PROFIL 〕━━━╮
+┃
+┃ 👤 Name: ${user.name}
+┃ 🎂 Alter: ${user.alter}
+┃ 📝 Status: Registriert
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━╯`
+    });
 }
