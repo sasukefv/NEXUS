@@ -5,7 +5,6 @@ if (command === "/reg") {
     const args = text.slice(4).trim();
 
     if (!args.includes("/")) {
-        return sock.sendMessage(from, {
             text: "❌ *Fehler!*\n\nNutze:\n`/reg Name/Alter`\n\nBeispiel:\n`/reg Sasuke/16`"
         });
     }
