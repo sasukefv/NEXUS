@@ -24,7 +24,6 @@ if (command === "/reg") {
 
     // Bereits registriert?
     if (registeredUsers.has(sender)) {
-        return sock.sendMessage(from, {
             text: "⚠️ Du bist bereits registriert!"
         });
     }
