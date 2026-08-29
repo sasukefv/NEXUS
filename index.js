@@ -67,7 +67,6 @@ if (command !== "/reg" && !registeredUsers.has(sender)) {
 ┃ /reg Sasuke/16
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯`
-    });
 }
 
 
