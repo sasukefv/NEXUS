@@ -1,7 +1,7 @@
 // ===============================
 // REGISTRIERUNG
 // ===============================
-if (command === "/reg") {
+if (command === "!reg") {
     const args = text.slice(4).trim();
 
     if (!args.includes("/")) {
