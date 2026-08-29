@@ -45,7 +45,6 @@ if (command === "/reg") {
 ┃ des NEXUS BOTs verwenden.
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━╯`
-    });
 }
 
 
