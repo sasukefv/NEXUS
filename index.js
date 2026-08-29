@@ -6,7 +6,6 @@ if (command === "/reg") {
 
     if (!args.includes("/")) {
             text: "❌ *Fehler!*\n\nNutze:\n`/reg Name/Alter`\n\nBeispiel:\n`/reg Sasuke/16`"
-        });
     }
 
     // Splittet beim ersten "/" und bereinigt direkte Leerzeichen
