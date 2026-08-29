@@ -52,7 +52,6 @@ if (command === "/reg") {
 // REGISTRIERUNG PRÜFEN
 // ===============================
 if (command !== "/reg" && !registeredUsers.has(sender)) {
-    return sock.sendMessage(from, {
         text:
 `╭━━━〔 ⚠️ NICHT REGISTRIERT 〕━━━╮
 ┃
