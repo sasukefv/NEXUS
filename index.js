@@ -82,5 +82,4 @@ if (command === "/me") {
 ┃ 📝 Status: Registriert
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━╯`
-    });
 }
