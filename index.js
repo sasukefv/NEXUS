@@ -83,3 +83,39 @@ if (command === "/me") {
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━╯`
 }
+// Beispiel für einen Team-Befehl (z.B. Coins cheaten / generieren)
+async function cmdAddCoins(sock, chatId, senderId, args, mentionedJids) {
+    const role = getUserRole(senderId);
+
+    // Nur Owner & Co-Owner haben Zugriff hierdrauf!
+    if (role !== 'owner' && role !== 'coowner') {
+        return await sock.sendMessage(chatId, { 
+            text: '❌ Dieser Befehl ist nur für die Inhaber & Co-Owner reserved!' 
+        });
+    }
+
+    const targetUser = mentionedJids[0];
+    const amount = parseInt(args[1]);
+
+    if (!targetUser || isNaN(amount)) {
+        return await sock.sendMessage(chatId, { text: '⚠️ Nutzung: !addcoins @User 1000' });
+    }
+
+    addCoins(targetUser, amount);
+    await sock.sendMessage(chatId, {
+        text: `✅ @${targetUser.split('@')[0]} wurden *+${amount} Coins* gutgeschrieben!`,
+        mentions: [targetUser]
+    });
+}
+switch (command) {
+    case '!setrank':
+    case '!setrole':
+        await cmdSetRank(sock, chatId, senderId, args, mentionedJid ? [mentionedJid] : []);
+        break;
+    case '!addcoins':
+        await cmdAddCoins(sock, chatId, senderId, args, mentionedJid ? [mentionedJid] : []);
+        break;
+    case '!me':
+        await cmdMe(sock, chatId, senderId);
+        break;
+}
