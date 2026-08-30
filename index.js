@@ -119,3 +119,51 @@ switch (command) {
         await cmdMe(sock, chatId, senderId);
         break;
 }
+// Beispiel für eine Event-basierte Nachrichtenverarbeitung (z. B. WhatsApp / Telegram / Discord)
+const afkUsers = new Map(); // Speichert: UserId -> Grund
+
+function handleMessage(message) {
+  const userId = message.sender; // ID des Absenders
+  const text = message.body;     // Nachrichtentext
+
+  // 1. Prüfen, ob der Sender selbst noch als AFK markiert ist
+  if (afkUsers.has(userId)) {
+    afkUsers.delete(userId);
+    console.log(`Willkommen zurück! Dein AFK-Status wurde entfernt.`);
+  }
+
+  // 2. Befehl: /afk [Grund]
+  if (text.startsWith("/afk")) {
+    const reason = text.split(" ").slice(1).join(" ") || "Kein Grund angegeben";
+    afkUsers.set(userId, reason);
+    console.log(`Du bist jetzt AFK. Grund: ${reason}`);
+    return;
+  }
+
+  // 3. Automatischer Hinweis, wenn ein AFK-Nutzer erwaehnt/angeschrieben wird
+  if (message.mentionedJid) { 
+    message.mentionedJid.forEach(mentionedId => {
+      if (afkUsers.has(mentionedId)) {
+        const reason = afkUsers.get(mentionedId);
+        console.log(`Der Nutzer ist aktuell AFK. Grund: ${reason}`);
+      }
+    });
+  }
+}
+const afkData = new Map(); // UserId -> { reason, time }
+
+if (text.startsWith("/afk")) {
+  const reason = text.split(" ").slice(1).join(" ") || "Beschäftigt";
+  afkData.set(userId, {
+    reason: reason,
+    time: Date.now()
+  });
+  console.log(`💤 AFK-Modus aktiviert!`);
+}
+
+// Wenn jemand den AFK-Nutzer anschreibt:
+if (afkData.has(targetUserId)) {
+  const data = afkData.get(targetUserId);
+  const minutes = Math.floor((Date.now() - data.time) / 60000);
+  console.log(`🤖 Diese Person ist seit ${minutes} Minute(n) AFK. (Grund: ${data.reason})`);
+}
