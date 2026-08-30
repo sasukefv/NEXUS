@@ -1,88 +1,3 @@
-// ===============================
-// REGISTRIERUNG
-// ===============================
-if (command === "!reg") {
-    const args = text.slice(4).trim();
-
-    if (!args.includes("/")) {
-            text: "❌ *Fehler!*\n\nNutze:\n`/reg Name/Alter`\n\nBeispiel:\n`/reg Sasuke/16`"
-    }
-
-    // Splittet beim ersten "/" und bereinigt direkte Leerzeichen
-    const parts = args.split("/");
-    const name = parts[0]?.trim();
-    const alter = parts[1]?.trim();
-
-    if (!name || !alter) {
-            text: "❌ Bitte gib deinen Namen und dein Alter an.\n\nBeispiel: `/reg Sasuke/16`"
-    }
-
-    // Prüft auf gültige Zahl und logisches Alter
-    if (isNaN(alter) || Number(alter) <= 0 || Number(alter) > 120) {
-            text: "❌ Bitte gib ein gültiges Alter an."
-    }
-
-    // Bereits registriert?
-    if (registeredUsers.has(sender)) {
-            text: "⚠️ Du bist bereits registriert!"
-    }
-
-    // Nutzer speichern
-    registeredUsers.set(sender, {
-        name: name,
-        alter: Number(alter)
-    });
-
-        text:
-`╭━━━〔 ✅ REGISTRIERUNG 〕━━━╮
-┃
-┃ 👤 Name: ${name}
-┃ 🎂 Alter: ${alter}
-┃
-┃ ✅ Erfolgreich registriert!
-┃
-┃ Du kannst nun die Commands
-┃ des NEXUS BOTs verwenden.
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯`
-}
-
-
-// ===============================
-// REGISTRIERUNG PRÜFEN
-// ===============================
-if (command !== "/reg" && !registeredUsers.has(sender)) {
-        text:
-`╭━━━〔 ⚠️ NICHT REGISTRIERT 〕━━━╮
-┃
-┃ ❌ Du bist noch nicht registriert.
-┃
-┃ Registriere dich zuerst mit:
-┃
-┃ /reg Name/Alter
-┃
-┃ Beispiel:
-┃ /reg Sasuke/16
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯`
-}
-
-
-// ===============================
-// /ME
-// ===============================
-if (command === "/me") {
-    const user = registeredUsers.get(sender);
-
-        text:
-`╭━━━〔 👤 DEIN PROFIL 〕━━━╮
-┃
-┃ 👤 Name: ${user.name}
-┃ 🎂 Alter: ${user.alter}
-┃ 📝 Status: Registriert
-┃
-╰━━━━━━━━━━━━━━━━━━━━━━╯`
-}
 // Beispiel für einen Team-Befehl (z.B. Coins cheaten / generieren)
 async function cmdAddCoins(sock, chatId, senderId, args, mentionedJids) {
     const role = getUserRole(senderId);
@@ -166,4 +81,50 @@ if (afkData.has(targetUserId)) {
   const data = afkData.get(targetUserId);
   const minutes = Math.floor((Date.now() - data.time) / 60000);
   console.log(`🤖 Diese Person ist seit ${minutes} Minute(n) AFK. (Grund: ${data.reason})`);
+}
+// !daily (Tägliche Coins abholen)
+async function cmdDaily(sock, chatId, senderId) {
+    if (!checkRegistration(senderId)) {
+        return await sock.sendMessage(chatId, { text: '❌ Du bist nicht registriert!' });
+    }
+
+    const data = loadData();
+    const now = Date.now();
+    const cooldown = 24 * 60 * 60 * 1000; // 24 Stunden in Millisekunden
+    const rewardAmount = 500; // Festgelegte tägliche Belohnung
+
+    // Erstes Mal !daily nutzen -> User-Objekt anlegen
+    if (!data[senderId]) {
+        data[senderId] = { coins: 0, lastWork: 0, lastDaily: 0 };
+    }
+
+    const lastDaily = data[senderId].lastDaily || 0;
+    const timePassed = now - lastDaily;
+
+    // Prüfen, ob 24 Stunden vergangen sind
+    if (timePassed < cooldown) {
+        const remainingMs = cooldown - timePassed;
+        const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+        const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+        return await sock.sendMessage(chatId, {
+            text: `⏳ Du hast deine tägliche Belohnung bereits abgeholt!\nKomm in *${hours} Std. und ${minutes} Min.* wieder.`,
+            mentions: [senderId]
+        });
+    }
+
+    // Belohnung gutschreiben & Zeitstempel aktualisieren
+    data[senderId].coins += rewardAmount;
+    data[senderId].lastDaily = now;
+    saveData(data);
+
+    await sock.sendMessage(chatId, {
+        text: `🎁 *TÄGLICHE BELOHNUNG!*\n\nDu hast *+${rewardAmount} Coins* erhalten!\nNeuer Kontostand: *${data[senderId].coins} Coins*.`,
+        mentions: [senderId]
+    });
+}
+switch (command) {
+    case '!daily':
+        await cmdDaily(sock, chatId, senderId);
+        break;
 }
