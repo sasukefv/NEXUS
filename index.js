@@ -1,3 +1,31 @@
+import discord
+from discord.ext import commands
+
+# Bot-Instanz erstellen (Befehls-Präfix ist '!')
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Speicher für registrierte Nutzer (Beispiel)
+registered_users = {}
+
+@bot.event
+async def on_ready():
+    print(f'Bot ist online als {bot.user}')
+
+# Der !register Befehl
+@bot.command()
+async def register(ctx, username: str = None):
+    if username is None:
+        await ctx.send("❌ Bitte gib einen Benutzernamen an! Syntax: `!register <DeinName>`")
+        return
+    
+    user_id = ctx.author.id
+    registered_users[user_id] = username
+    await ctx.send(f"✅ Erfolgreich registriert als **{username}**!")
+
+# Starte den Bot (Ersetze TOKEN mit deinem echten Discord-Bot-Token)
+bot.run('DEIN_BOT_TOKEN_HIER')
 // Beispiel für einen Team-Befehl (z.B. Coins cheaten / generieren)
 async function cmdAddCoins(sock, chatId, senderId, args, mentionedJids) {
     const role = getUserRole(senderId);
