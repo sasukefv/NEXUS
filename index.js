@@ -156,3 +156,25 @@ switch (command) {
         await cmdDaily(sock, chatId, senderId);
         break;
 }
+# Beispiel-Datenbank/Status für die Gruppe
+einstellungen = {
+    "welcome": True,
+    "leave": False,
+    "antilink": True
+}
+
+def zeige_gruppeninfo():
+    # Wandelt True/False in lesbare Symbole um
+    welcome_status = "🟢 AN" if einstellungen["welcome"] else "🔴 AUS"
+    leave_status = "🟢 AN" if einstellungen["leave"] else "🔴 AUS"
+    antilink_status = "🟢 AN" if einstellungen["antilink"] else "🔴 AUS"
+
+    text = f"""⚙️ **GRUPPEN-EINSTELLUNGEN**
+
+📥 Welcome:  [{welcome_status}]
+📤 Leave:    [{leave_status}]
+🔗 Antilink: [{antilink_status}]
+
+💡 *Ändere Status mit z.B. "!welcome an/aus"*"""
+    
+    return text
