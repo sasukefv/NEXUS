@@ -1,180 +1,127 @@
-import discord
-from discord.ext import commands
+import { makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
+import QRCode from 'qrcode-terminal';
+import OpenAI from 'openai';
+import pino from 'pino';
+import fs from 'fs';
 
-# Bot-Instanz erstellen (Befehls-Präfix ist '!')
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+// 1. OpenAI Client initialisieren
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || 'DEIN_OPENAI_API_KEY_HIER'
+});
 
-# Speicher für registrierte Nutzer (Beispiel)
-registered_users = {}
+// 2. Hilfsfunktionen zum Speichern & Laden der registrierten Nutzer
+const USERS_FILE = './users.json';
 
-@bot.event
-async def on_ready():
-    print(f'Bot ist online als {bot.user}')
-
-# Der !register Befehl
-@bot.command()
-async def register(ctx, username: str = None):
-    if username is None:
-        await ctx.send("❌ Bitte gib einen Benutzernamen an! Syntax: `!register <DeinName>`")
-        return
-    
-    user_id = ctx.author.id
-    registered_users[user_id] = username
-    await ctx.send(f"✅ Erfolgreich registriert als **{username}**!")
-
-# Starte den Bot (Ersetze TOKEN mit deinem echten Discord-Bot-Token)
-bot.run('DEIN_BOT_TOKEN_HIER')
-// Beispiel für einen Team-Befehl (z.B. Coins cheaten / generieren)
-async function cmdAddCoins(sock, chatId, senderId, args, mentionedJids) {
-    const role = getUserRole(senderId);
-
-    // Nur Owner & Co-Owner haben Zugriff hierdrauf!
-    if (role !== 'owner' && role !== 'coowner') {
-        return await sock.sendMessage(chatId, { 
-            text: '❌ Dieser Befehl ist nur für die Inhaber & Co-Owner reserved!' 
-        });
-    }
-
-    const targetUser = mentionedJids[0];
-    const amount = parseInt(args[1]);
-
-    if (!targetUser || isNaN(amount)) {
-        return await sock.sendMessage(chatId, { text: '⚠️ Nutzung: !addcoins @User 1000' });
-    }
-
-    addCoins(targetUser, amount);
-    await sock.sendMessage(chatId, {
-        text: `✅ @${targetUser.split('@')[0]} wurden *+${amount} Coins* gutgeschrieben!`,
-        mentions: [targetUser]
-    });
-}
-switch (command) {
-    case '!setrank':
-    case '!setrole':
-        await cmdSetRank(sock, chatId, senderId, args, mentionedJid ? [mentionedJid] : []);
-        break;
-    case '!addcoins':
-        await cmdAddCoins(sock, chatId, senderId, args, mentionedJid ? [mentionedJid] : []);
-        break;
-    case '!me':
-        await cmdMe(sock, chatId, senderId);
-        break;
-}
-// Beispiel für eine Event-basierte Nachrichtenverarbeitung (z. B. WhatsApp / Telegram / Discord)
-const afkUsers = new Map(); // Speichert: UserId -> Grund
-
-function handleMessage(message) {
-  const userId = message.sender; // ID des Absenders
-  const text = message.body;     // Nachrichtentext
-
-  // 1. Prüfen, ob der Sender selbst noch als AFK markiert ist
-  if (afkUsers.has(userId)) {
-    afkUsers.delete(userId);
-    console.log(`Willkommen zurück! Dein AFK-Status wurde entfernt.`);
+function loadUsers() {
+  if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(USERS_FILE, JSON.stringify({}));
   }
-
-  // 2. Befehl: /afk [Grund]
-  if (text.startsWith("/afk")) {
-    const reason = text.split(" ").slice(1).join(" ") || "Kein Grund angegeben";
-    afkUsers.set(userId, reason);
-    console.log(`Du bist jetzt AFK. Grund: ${reason}`);
-    return;
-  }
-
-  // 3. Automatischer Hinweis, wenn ein AFK-Nutzer erwaehnt/angeschrieben wird
-  if (message.mentionedJid) { 
-    message.mentionedJid.forEach(mentionedId => {
-      if (afkUsers.has(mentionedId)) {
-        const reason = afkUsers.get(mentionedId);
-        console.log(`Der Nutzer ist aktuell AFK. Grund: ${reason}`);
-      }
-    });
-  }
+  return JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
 }
-const afkData = new Map(); // UserId -> { reason, time }
 
-if (text.startsWith("/afk")) {
-  const reason = text.split(" ").slice(1).join(" ") || "Beschäftigt";
-  afkData.set(userId, {
-    reason: reason,
-    time: Date.now()
+function saveUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+}
+
+async function connectToWhatsApp() {
+  const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+
+  const sock = makeWASocket({
+    auth: state,
+    logger: pino({ level: 'silent' })
   });
-  console.log(`💤 AFK-Modus aktiviert!`);
-}
 
-// Wenn jemand den AFK-Nutzer anschreibt:
-if (afkData.has(targetUserId)) {
-  const data = afkData.get(targetUserId);
-  const minutes = Math.floor((Date.now() - data.time) / 60000);
-  console.log(`🤖 Diese Person ist seit ${minutes} Minute(n) AFK. (Grund: ${data.reason})`);
-}
-// !daily (Tägliche Coins abholen)
-async function cmdDaily(sock, chatId, senderId) {
-    if (!checkRegistration(senderId)) {
-        return await sock.sendMessage(chatId, { text: '❌ Du bist nicht registriert!' });
+  sock.ev.on('connection.update', (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      console.log('Scanne diesen QR-Code mit WhatsApp:');
+      QRCode.generate(qr, { small: true });
     }
 
-    const data = loadData();
-    const now = Date.now();
-    const cooldown = 24 * 60 * 60 * 1000; // 24 Stunden in Millisekunden
-    const rewardAmount = 500; // Festgelegte tägliche Belohnung
-
-    // Erstes Mal !daily nutzen -> User-Objekt anlegen
-    if (!data[senderId]) {
-        data[senderId] = { coins: 0, lastWork: 0, lastDaily: 0 };
+    if (connection === 'close') {
+      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      if (shouldReconnect) connectToWhatsApp();
+    } else if (connection === 'open') {
+      console.log('WhatsApp Bot ist erfolgreich verbunden!');
     }
+  });
 
-    const lastDaily = data[senderId].lastDaily || 0;
-    const timePassed = now - lastDaily;
+  sock.ev.on('creds.update', saveCreds);
 
-    // Prüfen, ob 24 Stunden vergangen sind
-    if (timePassed < cooldown) {
-        const remainingMs = cooldown - timePassed;
-        const hours = Math.floor(remainingMs / (1000 * 60 * 60));
-        const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  // Nachrichten-Verarbeitung
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type !== 'notify') return;
 
-        return await sock.sendMessage(chatId, {
-            text: `⏳ Du hast deine tägliche Belohnung bereits abgeholt!\nKomm in *${hours} Std. und ${minutes} Min.* wieder.`,
-            mentions: [senderId]
+    for (const msg of messages) {
+      if (msg.key.fromMe) continue;
+
+      const text = msg.message?.conversation || msg.message?.extendedTextMessage?.text;
+      if (!text) continue;
+
+      const remoteJid = msg.key.remoteJid;
+      const users = loadUsers();
+
+      // --- BEFEHL: !reg Name/Alter ---
+      if (text.startsWith('!reg')) {
+        const input = text.slice(4).trim(); // Entfernt "!reg"
+        const parts = input.split('/');
+
+        if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
+          await sock.sendMessage(remoteJid, {
+            text: '❌ Ungültiges Format!\nBitte registriere dich so:\n*!reg Name/Alter*\n\nBeispiel: *!reg Max/22*'
+          });
+          continue;
+        }
+
+        const name = parts[0].trim();
+        const age = parts[1].trim();
+
+        // Nutzer in der JSON-Datei speichern
+        users[remoteJid] = {
+          name: name,
+          age: age,
+          registeredAt: new Date().toISOString()
+        };
+        saveUsers(users);
+
+        await sock.sendMessage(remoteJid, {
+          text: `✅ Registrierung erfolgreich!\nWillkommen, *${name}* (${age} Jahre). Du kannst den Bot ab jetzt nutzen.`
         });
+        continue;
+      }
+
+      // --- ZUGRIFFSPRÜFUNG ---
+      // Prüfen, ob der Absender registriert ist
+      if (!users[remoteJid]) {
+        await sock.sendMessage(remoteJid, {
+          text: '⚠️ Du bist noch nicht registriert!\nBitte registriere dich zuerst mit:\n*!reg Name/Alter*\n\nBeispiel: *!reg Max/22*'
+        });
+        continue;
+      }
+
+      // --- KI-ANTWORT FÜR REGISTRIERTE NUTZER ---
+      try {
+        const userData = users[remoteJid];
+
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: `Du bist ein hilfreicher WhatsApp-Assistent. Du sprichst mit ${userData.name} (${userData.age} Jahre alt).`
+            },
+            { role: 'user', content: text }
+          ]
+        });
+
+        const replyText = completion.choices[0].message.content;
+        await sock.sendMessage(remoteJid, { text: replyText });
+      } catch (error) {
+        console.error('Fehler bei OpenAI:', error);
+      }
     }
-
-    // Belohnung gutschreiben & Zeitstempel aktualisieren
-    data[senderId].coins += rewardAmount;
-    data[senderId].lastDaily = now;
-    saveData(data);
-
-    await sock.sendMessage(chatId, {
-        text: `🎁 *TÄGLICHE BELOHNUNG!*\n\nDu hast *+${rewardAmount} Coins* erhalten!\nNeuer Kontostand: *${data[senderId].coins} Coins*.`,
-        mentions: [senderId]
-    });
-}
-switch (command) {
-    case '!daily':
-        await cmdDaily(sock, chatId, senderId);
-        break;
-}
-# Beispiel-Datenbank/Status für die Gruppe
-einstellungen = {
-    "welcome": True,
-    "leave": False,
-    "antilink": True
+  });
 }
 
-def zeige_gruppeninfo():
-    # Wandelt True/False in lesbare Symbole um
-    welcome_status = "🟢 AN" if einstellungen["welcome"] else "🔴 AUS"
-    leave_status = "🟢 AN" if einstellungen["leave"] else "🔴 AUS"
-    antilink_status = "🟢 AN" if einstellungen["antilink"] else "🔴 AUS"
-
-    text = f"""⚙️ **GRUPPEN-EINSTELLUNGEN**
-
-📥 Welcome:  [{welcome_status}]
-📤 Leave:    [{leave_status}]
-🔗 Antilink: [{antilink_status}]
-
-💡 *Ändere Status mit z.B. "!welcome an/aus"*"""
-    
-    return text
+connectToWhatsApp();
